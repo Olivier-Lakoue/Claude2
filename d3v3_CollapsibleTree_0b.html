@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+.node rect {
+  cursor: pointer;
+  fill: #fff;
+  fill-opacity: 0.5;
+  stroke: #3182bd;
+  stroke-width: 1.5px;
+}
+
+.node text {
+  font: 10px sans-serif;
+  pointer-events: none;
+}
+
+.link {
+  fill: none;
+  stroke: #9ecae1;
+  stroke-width: 1.5px;
+}
+
+</style>
+
+  
+<body style="width:100%;overflow-x:hidden;">
+
+	<div id="div_header">div_content1</div>
+
+		<div id="div_content1"></div>
+
+		<div id="div_content2"></div>
+
+   <div id="g_footer" style="margin:0.5rem;padding:0.5rem;border:1px dotted blue;"></div>
+
+  
+</body>
+
+</html>
+
+
+				<script src="https://d3js.org/d3.v3.min.js"></script>
+				<script src="../../js/_jsClass_IsoLocDic_1.js" type="text/javascript"></script>
+	
+
+<script>
+
+
+
+
+
+
+
+
+//la fct ne contient plus de mecanisme de dataLoad / fetch
+//div_tgt + data au format attendus sont forunis en entree
+//prete a etre integree dans un pipeline / flux dataviz dédie, lequel s'occuppe des datas a afficher.
+ 
+
+	function D3V3_CollapsibleTree(params) 
+	{
+		// options = { width, barHeight, duration, ... }
+		// data = { name: "root", children: [...] }  ← passé en param, plus de fetch
+		
+		var {div_tgt, data} = params ;
+		
+		if (!div_tgt || !data) {
+		
+		
+			console.log('params error !')
+			return ;
+		
+		}
+		
+		
+		// tout le code d3v3 ici
+				var margin = {top: 30, right: 20, bottom: 30, left: 20},
+					width = 960,
+					barHeight = 20,
+					barWidth = (width - margin.left - margin.right) * 0.8;
+
+				var i = 0,
+					duration = 400,
+					root;
+
+				var diagonal = d3.svg.diagonal()
+					.projection(function(d) { return [d.y, d.x]; });
+
+				//var svg = d3.select("body").append("svg")
+				var svg = d3.select("#"+div_tgt).append("svg").attr("width", width)
+				  .append("g")
+					.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+			/*
+			
+				d3.json("flare.json", function(error, flare) {
+					  if (error) throw error;
+					  root = flare; root.x0 = 0; root.y0 = 0;
+					  update(root);
+				});
+			
+			*/
+
+
+
+				//d3.json("flare.json", function(error, flare) {
+					  //if (error) throw error;
+				var root = data ; //json flare 
+					  
+					  root.x0 = 0; root.y0 = 0;
+					  update(root);
+				
+				//});
+
+	
+	//-------------------------------------------------------------
+	
+			function update(source) 
+			{
+
+				  var tree = d3.layout.tree().size([500, width]);
+
+				  // Compute the flattened node list.
+				  var nodes = tree.nodes(root);
+				  var links = tree.links(nodes);
+
+				  var height = Math.max(500, nodes.length * barHeight + margin.top + margin.bottom);
+
+				  //d3.select("svg").transition()
+				  d3.select("#"+div_tgt+" svg").transition()
+					  .duration(duration)
+					  .attr("height", height);
+
+				  d3.select(self.frameElement).transition()
+					  .duration(duration)
+					  .style("height", height + "px");
+
+				  // Compute the layout positions
+				  var index = -1;
+				  nodes.forEach(function(n) {
+					n.x = ++index * barHeight;
+					n.y = n.depth * 20;
+				  });
+
+				  // Update the nodes
+				  var node = svg.selectAll(".node")
+					.data(nodes, function(d) { return d.id || (d.id = ++i); });
+
+				  var nodeEnter = node.enter().append("g")
+					  .attr("class", "node")
+					  .attr("transform", function(d) { return "translate(" + source.y0 + "," + source.x0 + ")"; })
+					  .style("opacity", 0);
+
+				  // Enter any new nodes at the parent's previous position.
+				  nodeEnter.append("rect")
+					  .attr("y", -barHeight / 2)
+					  .attr("height", barHeight)
+					  .attr("width", barWidth)
+					  .style("fill", color)
+					  .on("click", click);
+
+				  nodeEnter.append("text")
+					  .attr("dy", 3.5)
+					  .attr("dx", 5.5)
+					  .text(function(d) { return d.name; });
+
+				  // Transition nodes to their new position.
+				  nodeEnter.transition()
+					  .duration(duration)
+					  .attr("transform", function(d) { return "translate(" + d.y + "," + d.x + ")"; })
+					  .style("opacity", 1);
+
+				  node.transition()
+					  .duration(duration)
+					  .attr("transform", function(d) { return "translate(" + d.y + "," + d.x + ")"; })
+					  .style("opacity", 1)
+					.select("rect")
+					  .style("fill", color);
+
+				  // Transition exiting nodes to the parent's new position.
+				  node.exit().transition()
+					  .duration(duration)
+					  .attr("transform", function(d) { return "translate(" + source.y + "," + source.x + ")"; })
+					  .style("opacity", 0)
+					  .remove();
+
+				  // Update the links
+				  var link = svg.selectAll(".link")
+					.data(links, function(d) { return d.target.id; });
+
+				  // Enter any new links at the parent's previous position.
+				  link.enter().insert("path", "g")
+					  .attr("class", "link")
+					  .attr("d", function(d) {
+						var o = {x: source.x0, y: source.y0};
+						return diagonal({source: o, target: o});
+					  })
+					.transition()
+					  .duration(duration)
+					  .attr("d", diagonal);
+
+				  // Transition links to their new position.
+				  link.transition()
+					  .duration(duration)
+					  .attr("d", diagonal);
+
+				  // Transition exiting links to the parent's new position.
+				  link.exit().transition()
+					  .duration(duration)
+					  .attr("d", function(d) {
+						var o = {x: source.x, y: source.y};
+						return diagonal({source: o, target: o});
+					  })
+					  .remove();
+
+				  // Stash the old positions for transition.
+				  nodes.forEach(function(d) {
+					d.x0 = d.x;
+					d.y0 = d.y;
+				  });
+				}
+
+				// Toggle children on click.
+				function click(d) {
+				  if (d.children) {
+					d._children = d.children;
+					d.children = null;
+				  } else {
+					d.children = d._children;
+					d._children = null;
+				  }
+				  update(d);
+				}
+
+				function color(d) {
+				  return d._children ? "#3182bd" : d.children ? "#c6dbef" : "#fd8d3c";
+				}
+
+
+	}
+
+
+
+//------------------------------------------------------------
+// _dataPrep_D3V3_CollapsibleTree
+// Transforme un tableau plat (csvLst) en arbo children
+// pour D3V3_CollapsibleTree
+//
+// Entrée :
+//   csvLst  : tableau de dicts (format plat)
+//   fld_dic : { root_name, key1, key2, key3 (optionnel) }
+//   f_lst   : ["region", "departement", "ville"] — ordre des niveaux
+//
+// Sortie :
+//   objet arbo { name, children } prêt pour D3V3_CollapsibleTree
+//------------------------------------------------------------
+
+function _dataPrep_D3V3_CollapsibleTree(csvLst, fld_dic, f_lst) {
+
+    //--- validations entrée
+    if (!csvLst || !csvLst.length) {
+        console.log('_dataPrep_D3V3_CollapsibleTree : csvLst vide ou manquant');
+        return null;
+    }
+    if (!fld_dic || !fld_dic.root_name || !fld_dic.key1) {
+        console.log('_dataPrep_D3V3_CollapsibleTree : fld_dic invalide');
+        return null;
+    }
+    if (!f_lst || !f_lst.length) {
+        console.log('_dataPrep_D3V3_CollapsibleTree : f_lst vide ou manquant');
+        return null;
+    }
+
+    //--- construction du noeud racine
+    var root = {
+        name     : fld_dic.root_name,
+        children : []
+    };
+
+    //--- helper : cherche un enfant par nom dans un noeud parent
+    //--- si inexistant, le crée et l'ajoute
+    function _getOrCreate(parentNode, childName) {
+
+        if (!childName || childName === "") return null;
+
+        var found = null;
+        for (var k = 0; k < parentNode.children.length; k++) {
+            if (parentNode.children[k].name === childName) {
+                found = parentNode.children[k];
+                break;
+            }
+        }
+
+        if (!found) {
+            found = { name: childName, children: [] };
+            parentNode.children.push(found);
+        }
+
+        return found;
+    }
+
+    //--- parcours de csvLst ligne par ligne
+    for (var idx = 0; idx < csvLst.length; idx++) {
+
+        var row = csvLst[idx];
+
+        //--- niv1 — key1 obligatoire
+        var fld_n1 = fld_dic.key1;
+        var fld_v1 = row[fld_n1];
+        if (!fld_v1) continue;
+        var node1 = _getOrCreate(root, fld_v1);
+
+        //--- niv2 — key2 optionnel
+        if (!fld_dic.key2) continue;
+        var fld_n2 = fld_dic.key2;
+        var fld_v2 = row[fld_n2];
+        if (!fld_v2) continue;
+        var node2 = _getOrCreate(node1, fld_v2);
+
+        //--- niv3 — key3 optionnel
+        if (!fld_dic.key3) continue;
+        var fld_n3 = fld_dic.key3;
+        var fld_v3 = row[fld_n3];
+        if (!fld_v3) continue;
+        _getOrCreate(node2, fld_v3);
+    }
+
+    //--- nettoyage : supprime children:[] sur les feuilles
+    function _cleanLeaves(node) {
+        if (node.children && node.children.length === 0) {
+            delete node.children;
+        } else if (node.children) {
+            node.children.forEach(function(child) {
+                _cleanLeaves(child);
+            });
+        }
+    }
+    _cleanLeaves(root);
+
+    return root;
+}
+
+
+
+//-----------------------------
+//launcher0 
+
+
+	function _init_D3V3_CollapsibleTree0(params) 
+	{
+
+		//fct de lancement
+		//peut etre dans le dashboard, dans un menu ou autre part.
+
+
+			//en général els datas viennnt d'une db ...
+				d3.json("flare.json", function(error, flare) {
+					  if (error) throw error;
+					  //root = flare; root.x0 = 0; root.y0 = 0;
+					  //update(root);
+					  
+						//function D3V3_CollapsibleTree(params) 
+						//var {div_tgt, data} = params ;
+						
+							D3V3_CollapsibleTree({div_tgt:"div_content1", data:flare}) 
+								
+								//en general la fct de lancement connait le div_cible
+								//mais pour et exemple on passe data + div_tgt en dur 				  
+					  
+					  
+				});
+			
+
+
+
+
+	} ;
+	
+
+
+
+
+//------------------------------------------------------------
+// exemple d'utilisation / test
+//------------------------------------------------------------
+
+/*
+
+var csvLst = [
+    { region:"Ile-de-France",  departement:"Paris",            ville:"Paris 1er"  },
+    { region:"Ile-de-France",  departement:"Paris",            ville:"Paris 2eme" },
+    { region:"Ile-de-France",  departement:"Hauts-de-Seine",   ville:"Neuilly"    },
+    { region:"PACA",           departement:"Bouches-du-Rhone", ville:"Marseille"  },
+    { region:"PACA",           departement:"Var",              ville:"Toulon"     }
+];
+
+var fld_dic = {
+    root_name : "France",
+    key1      : "region",
+    key2      : "departement",
+    key3      : "ville"
+};
+
+var f_lst = ["region", "departement", "ville"];
+
+var arbo = _dataPrep_D3V3_CollapsibleTree(csvLst, fld_dic, f_lst);
+console.log(JSON.stringify(arbo, null, 2));
+
+// puis appel composant
+D3V3_CollapsibleTree({ div_tgt: "div_content1", data: arbo });
+
+*/
+
+
+//------------------------------------------------------------
+// _dataPrep_D3V3_CollapsibleTree
+// Transforme un tableau plat (csvLst) en arbo children
+// pour D3V3_CollapsibleTree
+//
+// Entrée :
+//   csvLst  : tableau de dicts (format plat)
+//   fld_dic : { root_name, key1, key2, key3 (optionnel) }
+//   f_lst   : ["region", "departement", "ville"] — ordre des niveaux
+//
+// Sortie :
+//   objet arbo { name, children } prêt pour D3V3_CollapsibleTree
+//------------------------------------------------------------
+
+function _dataPrep_D3V3_CollapsibleTree(csvLst, fld_dic, f_lst) {
+
+    //--- validations entrée
+    if (!csvLst || !csvLst.length) {
+        console.log('_dataPrep_D3V3_CollapsibleTree : csvLst vide ou manquant');
+        return null;
+    }
+    if (!fld_dic || !fld_dic.root_name || !fld_dic.key1) {
+        console.log('_dataPrep_D3V3_CollapsibleTree : fld_dic invalide');
+        return null;
+    }
+    if (!f_lst || !f_lst.length) {
+        console.log('_dataPrep_D3V3_CollapsibleTree : f_lst vide ou manquant');
+        return null;
+    }
+
+    //--- construction du noeud racine
+    var root = {
+        name     : fld_dic.root_name,
+        children : []
+    };
+
+    //--- helper : cherche un enfant par nom dans un noeud parent
+    //--- si inexistant, le crée et l'ajoute
+    function _getOrCreate(parentNode, childName) {
+
+        if (!childName || childName === "") return null;
+
+        var found = null;
+        for (var k = 0; k < parentNode.children.length; k++) {
+            if (parentNode.children[k].name === childName) {
+                found = parentNode.children[k];
+                break;
+            }
+        }
+
+        if (!found) {
+            found = { name: childName, children: [] };
+            parentNode.children.push(found);
+        }
+
+        return found;
+    }
+
+    //--- parcours de csvLst ligne par ligne
+    for (var idx = 0; idx < csvLst.length; idx++) {
+
+        var row = csvLst[idx];
+
+        //--- niv1 — key1 obligatoire
+        var fld_n1 = fld_dic.key1;
+        var fld_v1 = row[fld_n1];
+        if (!fld_v1) continue;
+        var node1 = _getOrCreate(root, fld_v1);
+
+        //--- niv2 — key2 optionnel
+        if (!fld_dic.key2) continue;
+        var fld_n2 = fld_dic.key2;
+        var fld_v2 = row[fld_n2];
+        if (!fld_v2) continue;
+        var node2 = _getOrCreate(node1, fld_v2);
+
+        //--- niv3 — key3 optionnel
+        if (!fld_dic.key3) continue;
+        var fld_n3 = fld_dic.key3;
+        var fld_v3 = row[fld_n3];
+        if (!fld_v3) continue;
+        _getOrCreate(node2, fld_v3);
+    }
+
+    //--- nettoyage : supprime children:[] sur les feuilles
+    function _cleanLeaves(node) {
+        if (node.children && node.children.length === 0) {
+            delete node.children;
+        } else if (node.children) {
+            node.children.forEach(function(child) {
+                _cleanLeaves(child);
+            });
+        }
+    }
+    _cleanLeaves(root);
+
+    return root;
+}
+
+
+//------------------------------------------------------------
+// exemple d'utilisation / test
+//------------------------------------------------------------
+
+/*
+
+var csvLst = [
+    { region:"Ile-de-France",  departement:"Paris",            ville:"Paris 1er"  },
+    { region:"Ile-de-France",  departement:"Paris",            ville:"Paris 2eme" },
+    { region:"Ile-de-France",  departement:"Hauts-de-Seine",   ville:"Neuilly"    },
+    { region:"PACA",           departement:"Bouches-du-Rhone", ville:"Marseille"  },
+    { region:"PACA",           departement:"Var",              ville:"Toulon"     }
+];
+
+var fld_dic = {
+    root_name : "France",
+    key1      : "region",
+    key2      : "departement",
+    key3      : "ville"
+};
+
+var f_lst = ["region", "departement", "ville"];
+
+var arbo = _dataPrep_D3V3_CollapsibleTree(csvLst, fld_dic, f_lst);
+console.log(JSON.stringify(arbo, null, 2));
+
+// puis appel composant
+D3V3_CollapsibleTree({ div_tgt: "div_content1", data: arbo });
+
+*/
+
+
+//-----------------------------
+//launcher0 
+
+
+	function _init_D3V3_CollapsibleTree1(params) 
+	{
+
+		//fct de lancement
+		//peut etre dans le dashboard, dans un menu ou autre part.
+
+
+				var csvLst = [
+					{ region:"Ile-de-France",  departement:"Paris",            ville:"Paris 1er"  },
+					{ region:"Ile-de-France",  departement:"Paris",            ville:"Paris 2eme" },
+					{ region:"Ile-de-France",  departement:"Hauts-de-Seine",   ville:"Neuilly"    },
+					{ region:"PACA",           departement:"Bouches-du-Rhone", ville:"Marseille"  },
+					{ region:"PACA",           departement:"Var",              ville:"Toulon"     }
+				];
+
+				var fld_dic = {	root_name : "France",
+					key1      : "region", 			key2      : "departement",
+					key3      : "ville"
+				};
+
+				var f_lst = ["region", "departement", "ville"];
+				
+				
+				
+			//ABW:{Country: '🇦🇼 Aruba', iso_code: 'ABW', ISO_2: 'AW', zone: 'South America', Continent: 'Americas', …}
+	
+	
+				var csvLst1 = Object.keys(IsoLocDic).filter(i_key => IsoLocDic[i_key].Continent!="" && IsoLocDic[i_key].zone!="")
+									.map(i_key => [{"Continent":IsoLocDic[i_key].Continent, "zone":IsoLocDic[i_key].Region, 
+															"Country":IsoLocDic[i_key].Country}][0]) 
+									//.keySort("Continent", false)
+									
+					console.log(csvLst1) ;
+				
+				
+						f_lst = ["Continent", "zone", "Country"];
+				
+								
+					fld_dic = {	root_name : "World",
+									key1 : "Continent", key2: "zone", key3 : "Country"
+								};
+								
+						csvLst = csvLst1 ;
+				
+
+				var arbo = _dataPrep_D3V3_CollapsibleTree(csvLst, fld_dic, f_lst);
+					//console.log(JSON.stringify(arbo, null, 2));
+
+				// puis appel composant
+					D3V3_CollapsibleTree({ div_tgt: "div_content1", data: arbo });
+
+
+
+
+
+
+	} ;
+	
+
+
+
+
+				
+
+//-------------
+//launcher exemple en dur 
+//en general la fct de lancement connait le div_cible
+//
+	//_init_D3V3_CollapsibleTree0({}) ;
+
+	_init_D3V3_CollapsibleTree1({}) ;
+
+
+
+
+
+
+
+</script>

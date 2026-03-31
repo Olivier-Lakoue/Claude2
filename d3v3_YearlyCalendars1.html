@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+
+
+<body>
+
+ 
+<body style="width:100%;overflow-x:hidden;">
+
+	<div id="div_header">div_content1</div>
+
+		<div id="div_content1"></div>
+
+		<div id="div_content2"></div>
+
+   <div id="g_footer" style="margin:0.5rem;padding:0.5rem;border:1px dotted blue;"></div>
+
+  
+</body>
+
+</html>
+
+			<script src="https://d3js.org/d3.v3.min.js"></script>
+
+
+
+
+
+<script>
+
+/*
+
+actions attendues :
+
+1) basculer sous v3
+
+2) ajoutter la gestion des events : mouseover / move / out / click
+
+	click = rollback fct = 
+
+
+*/
+
+			function rBackClick(params) 
+			{
+				console.log('rBackClick'); console.log(rBackClick) 
+
+			} ;
+			
+			
+	//-------------------------------
+
+
+//------------------------------------------------------------
+// D3V3_YearlyCalendars
+// Calendrier heatmap annuel — d3.v3 — version générique
+//
+// params = {
+//   div_tgt     : "div_content1"          -- div cible (défaut: "div_content1")
+//   data        : { "1990-01-01": 0.023 } -- objet mappé date → valeur
+//   yearRange   : [1990, 2011]             -- optionnel, défaut [1990, 2011]
+//   onMouseOver : function(d) {}           -- optionnel
+//   onMouseMove : function(d) {}           -- optionnel
+//   onMouseOut  : function(d) {}           -- optionnel
+//   onClick     : function(d) {}           -- optionnel
+// }
+//------------------------------------------------------------
+
+function D3V3_YearlyCalendars1(params) {
+
+    //--- validations
+    if (!params.data) {
+        console.log('D3V3_YearlyCalendars : data manquant');
+        return;
+    }
+
+    //--- params
+    var div_tgt   = params.div_tgt  || "div_content1";
+    var data      = params.data;
+    var yearRange = params.yearRange || [1990, 2011];
+    var width     = 960, height    = 136, cellSize  = 17;
+
+    //--- format
+    var formatPercent = d3.format(".1%");
+
+    //--- couleurs
+    var color = d3.scale.quantize()
+        .domain([-0.05, 0.05])
+        .range(["#a50026","#d73027","#f46d43","#fdae61","#fee08b",
+                "#ffffbf","#d9ef8b","#a6d96a","#66bd63","#1a9850","#006837"]);
+
+    //--- création des SVG annuels
+    var svg = d3.select("#" + div_tgt)
+        .selectAll("svg")
+        .data(d3.range(yearRange[0], yearRange[1]))
+        .enter().append("svg")
+            .attr("width", width)
+            .attr("height", height)
+        .append("g")
+            .attr("transform", "translate(" + ((width - cellSize * 53) / 2) + ","
+                                            + (height - cellSize * 7 - 1) + ")");
+
+    //--- label année
+    svg.append("text")
+        .attr("transform", "translate(-6," + cellSize * 3.5 + ")rotate(-90)")
+        .attr("font-family", "sans-serif")
+        .attr("font-size", 10)
+        .attr("text-anchor", "middle")
+        .text(function(d) { return d; });
+
+    //--- cellules jour
+    var rect = svg.append("g")
+        .attr("fill", "none")
+        .attr("stroke", "#ccc")
+        .selectAll("rect")
+        .data(function(d) {
+            return d3.time.days(new Date(d, 0, 1), new Date(d + 1, 0, 1));
+        })
+        .enter().append("rect")
+            .attr("width",  cellSize)
+            .attr("height", cellSize)
+            .attr("x", function(d) {
+                return d3.time.weekOfYear(d) * cellSize;
+            })
+            .attr("y", function(d) {
+                return d.getDay() * cellSize;
+            })
+            .datum(d3.time.format("%Y-%m-%d"));
+
+    //--- colorisation depuis data
+    rect.filter(function(d) { return d in data; })
+        .attr("fill", function(d) { return color(data[d]); })
+        .append("title")
+            .text(function(d) { return d + ": " + formatPercent(data[d]); });
+
+    //--------------------------------------------
+    // section events — isolée et réutilisable
+    //--------------------------------------------
+    _attachEvents({
+        selection   : rect,
+        onMouseOver : params.onMouseOver,
+        onMouseMove : params.onMouseMove,
+        onMouseOut  : params.onMouseOut,
+        onClick     : params.onClick
+    });
+
+    //--- contours mois
+    svg.append("g")
+        .attr("fill", "none")
+        .attr("stroke", "#000")
+        .selectAll("path")
+        .data(function(d) {
+            return d3.time.months(new Date(d, 0, 1), new Date(d + 1, 0, 1));
+        })
+        .enter().append("path")
+            .attr("d", pathMonth);
+
+    //--- helper pathMonth
+    function pathMonth(t0) {
+        var t1 = new Date(t0.getFullYear(), t0.getMonth() + 1, 0),
+            d0 = t0.getDay(),
+            w0 = d3.time.weekOfYear(t0),
+            d1 = t1.getDay(),
+            w1 = d3.time.weekOfYear(t1);
+
+        return "M" + (w0 + 1) * cellSize + "," + d0 * cellSize
+             + "H" + w0 * cellSize        + "V" + 7 * cellSize
+             + "H" + w1 * cellSize        + "V" + (d1 + 1) * cellSize
+             + "H" + (w1 + 1) * cellSize  + "V" + 0
+             + "H" + (w0 + 1) * cellSize  + "Z";
+    }
+}
+
+//----------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------
+// _init_D3V3_YearlyCalendars
+// Launcher — fetch CSV + dataPrep + appel composant
+// En production : remplacer d3.csv par fetch depuis back_end
+//
+// params = {
+//   div_tgt   : "div_content1"
+//   csv_path  : "dji.csv"         -- chemin CSV (défaut: "dji.csv")
+//   yearRange : [1990, 2011]       -- optionnel
+//   onMouseOver / onMouseMove / onMouseOut / onClick
+// }
+//------------------------------------------------------------
+
+function _init_D3V3_YearlyCalendars(params) {
+
+    var csv_path = params.csv_path || "dji.csv";
+
+
+			csv_path = "dji.csv"; ;
+			
+		d3.csv(csv_path, function(error, csv) {
+			if (error) throw error;
+
+			//--- dataPrep : format plat CSV → objet mappé date → valeur
+			var data = d3.nest()
+				.key(function(d) { return d.Date; })
+				.rollup(function(d) { return (d[0].Close - d[0].Open) / d[0].Open; })
+				.map(csv);
+
+				// v3 — remplacer .object() par .map()
+				/*
+					var data = d3.nest()
+						.key(function(d) { return d.Date; })
+						.rollup(function(d) { return (d[0].Close - d[0].Open) / d[0].Open; })
+						.map(csv);
+				*/
+		
+		
+			//--- injection data + appel composant
+			params.data = data;
+				D3V3_YearlyCalendars1(params);
+		});
+
+
+}
+
+
+//------------------------------------------------------------
+// launcher exemple
+//------------------------------------------------------------
+
+/*
+
+_init_D3V3_YearlyCalendars({
+    div_tgt     : "div_content1",
+    csv_path    : "dji.csv",
+    yearRange   : [1990, 2011],
+    onMouseOver : function(d) { console.log("over",  d); },
+    onMouseOut  : function(d) { console.log("out",   d); },
+    onClick     : function(d) { console.log("click", d); }
+});
+
+*/
+
+		_init_D3V3_YearlyCalendars({
+			div_tgt     : "div_content1",
+			csv_path    : "dji.csv", yearRange   : [1990, 2011],
+			onMouseOver : function(d) { console.log("over",  d); },
+			onMouseOut  : function(d) { console.log("out",   d); },
+			onClick     : function(d) { console.log("click", d); }
+		});
+
+
+
+//----------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------
+// _attachEvents
+// Helper générique réutilisable dans tous les composants D3
+// Attache les events mouseover / mousemove / mouseout / click
+// sur n'importe quelle sélection D3
+//
+// params = {
+//   selection   : sélection D3 (rect, path, circle, ...)
+//   onMouseOver : function(d) {}  -- optionnel
+//   onMouseMove : function(d) {}  -- optionnel
+//   onMouseOut  : function(d) {}  -- optionnel
+//   onClick     : function(d) {}  -- optionnel
+// }
+//------------------------------------------------------------
+
+function _attachEvents(params) {
+
+    var selection   = params.selection                  ;
+    var onMouseOver = params.onMouseOver || function(d) {};
+    var onMouseMove = params.onMouseMove || function(d) {};
+    var onMouseOut  = params.onMouseOut  || function(d) {};
+    var onClick     = params.onClick     || function(d) {};
+
+    if (!selection) {
+        console.log('_attachEvents : selection manquante');
+        return;
+    }
+
+    selection
+        .on("mouseover", onMouseOver)
+        .on("mousemove", onMouseMove)
+        .on("mouseout",  onMouseOut)
+        .on("click",     onClick);
+}
+
+
+
+//----------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------
+//------------------------------------------------------------
+// D3V3_YearlyCalendars0
+// Calendrier heatmap annuel — downgrade v4 → v3
+//
+// params = {
+//   div_tgt     : "div_content1"   -- div cible (défaut: "div_content1")
+//   onMouseOver : function(d) {}   -- optionnel
+//   onMouseMove : function(d) {}   -- optionnel
+//   onMouseOut  : function(d) {}   -- optionnel
+//   onClick     : function(d) {}   -- optionnel
+// }
+//
+// Note : le fetch dji.csv reste en l'état pour cette version
+//------------------------------------------------------------
+
+	function D3V3_YearlyCalendars0(params) 
+	{
+
+		//--- params
+		var div_tgt  = params.div_tgt || "div_content1";
+		var width    = 960;
+		var height   = 136;
+		var cellSize = 17;
+
+		//--- format
+		var formatPercent = d3.format(".1%");
+
+		//--- couleurs — d3.scale.quantize en v3
+		var color = d3.scale.quantize()
+			.domain([-0.05, 0.05])
+			.range(["#a50026","#d73027","#f46d43","#fdae61","#fee08b",
+					"#ffffbf","#d9ef8b","#a6d96a","#66bd63","#1a9850","#006837"]);
+
+		//--- création des SVG annuels — d3.time en v3
+		var svg = d3.select("#" + div_tgt)
+			.selectAll("svg")
+			.data(d3.range(1990, 2011))
+			.enter().append("svg")
+				.attr("width", width)
+				.attr("height", height)
+			.append("g")
+				.attr("transform", "translate(" + ((width - cellSize * 53) / 2) + ","
+												+ (height - cellSize * 7 - 1) + ")");
+
+		//--- label année
+		svg.append("text")
+			.attr("transform", "translate(-6," + cellSize * 3.5 + ")rotate(-90)")
+			.attr("font-family", "sans-serif")
+			.attr("font-size", 10)
+			.attr("text-anchor", "middle")
+			.text(function(d) { return d; });
+
+		//--- cellules jour — d3.time.days en v3
+		var rect = svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "#ccc")
+			.selectAll("rect")
+			.data(function(d) {
+				return d3.time.days(new Date(d, 0, 1), new Date(d + 1, 0, 1));
+			})
+			.enter().append("rect")
+				.attr("width",  cellSize)
+				.attr("height", cellSize)
+				.attr("x", function(d) {
+					//--- d3.time.weekOfYear en v3
+					return d3.time.weekOfYear(d) * cellSize;
+				})
+				.attr("y", function(d) {
+					return d.getDay() * cellSize;
+				})
+				.datum(d3.time.format("%Y-%m-%d"));
+
+		//--------------------------------------------
+		// section events — isolée et réutilisable
+		//--------------------------------------------
+				_attachEvents({
+					selection   : rect,
+					onMouseOver : params.onMouseOver,
+					onMouseMove : params.onMouseMove,
+					onMouseOut  : params.onMouseOut,
+					onClick     : params.onClick
+				});
+
+		//--- contours mois — d3.time.months en v3
+		svg.append("g")
+			.attr("fill", "none")
+			.attr("stroke", "#000")
+			.selectAll("path")
+			.data(function(d) {
+				return d3.time.months(new Date(d, 0, 1), new Date(d + 1, 0, 1));
+			})
+			.enter().append("path")
+				.attr("d", pathMonth);
+
+		//--- fetch csv — inchangé pour cette version
+		d3.csv("dji.csv", function(error, csv) {
+			if (error) throw error;
+
+			/*
+				var data = d3.nest()
+					.key(function(d) { return d.Date; })
+					.rollup(function(d) { return (d[0].Close - d[0].Open) / d[0].Open; })
+					.object(csv);
+			*/
+
+			// v3 — remplacer .object() par .map()
+				var data = d3.nest()
+					.key(function(d) { return d.Date; })
+					.rollup(function(d) { return (d[0].Close - d[0].Open) / d[0].Open; })
+					.map(csv);
+	
+	
+				rect.filter(function(d) { return d in data; })
+					.attr("fill", function(d) { return color(data[d]); })
+					.append("title")
+						.text(function(d) { return d + ": " + formatPercent(data[d]); });
+		});
+
+		//--------------------------------------------
+		// pathMonth — helper interne
+		//--------------------------------------------
+		function pathMonth(t0) {
+			var t1 = new Date(t0.getFullYear(), t0.getMonth() + 1, 0),
+				d0 = t0.getDay(),
+				w0 = d3.time.weekOfYear(t0),
+				d1 = t1.getDay(),
+				w1 = d3.time.weekOfYear(t1);
+
+			return "M" + (w0 + 1) * cellSize + "," + d0 * cellSize
+				 + "H" + w0 * cellSize        + "V" + 7 * cellSize
+				 + "H" + w1 * cellSize        + "V" + (d1 + 1) * cellSize
+				 + "H" + (w1 + 1) * cellSize  + "V" + 0
+				 + "H" + (w0 + 1) * cellSize  + "Z";
+		}
+
+	}
+
+
+//------------------------------------------------------------
+// launcher exemple
+//------------------------------------------------------------
+
+/*
+
+D3V3_YearlyCalendars({
+    div_tgt     : "div_content1",
+    onMouseOver : function(d) { console.log("over", d); },
+    onMouseOut  : function(d) { console.log("out",  d); },
+    onClick     : function(d) { console.log("click",d); }
+});
+
+*/
+
+
+/*
+	D3V3_YearlyCalendars0({
+		div_tgt     : "div_content1",
+		onMouseOver : function(d) { console.log("over", d); },
+		onMouseOut  : function(d) { console.log("out",  d); },
+		onClick     : function(d) { console.log("click",d); }
+	});
+
+*/	
+	
+			
+</script>
+
+
